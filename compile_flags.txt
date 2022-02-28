@@ -1,0 +1,5 @@
+-Weverything
+-Wno-padded
+-Wno-unused-macros
+-Wno-switch-enum
+-Iinc/

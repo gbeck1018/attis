@@ -1,0 +1,24 @@
+BasedOnStyle:                   Microsoft
+AlignArrayOfStructures:         Right
+AlignEscapedNewlines:           Left
+AllowShortBlocksOnASingleLine:  Empty
+AllowShortEnumsOnASingleLine:   true
+BreakBeforeBinaryOperators:     All
+BreakBeforeBraces:              Custom
+BraceWrapping:
+  AfterEnum:                    true
+  AfterStruct:                  true
+  AfterUnion:                   true
+  SplitEmptyFunction:           false
+  SplitEmptyRecord:             false
+ColumnLimit:                    79
+DerivePointerAlignment:         false
+IncludeBlocks:                  Preserve
+IndentGotoLabels:               false
+IndentPPDirectives:             AfterHash
+IndentWrappedFunctionNames:     true
+PointerAlignment:               Right
+ReferenceAlignment:             Right
+SortIncludes:                   Never
+SortUsingDeclarations:          true
+UseTab:                         Never
