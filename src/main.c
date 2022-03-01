@@ -60,7 +60,7 @@ static double TEST_eval_AST_node(AST_node *node)
 {
     long ret;
     double temp;
-    if (node->token.type == TokenBinaryOperator)
+    if (node->type == NodeBinaryOperator)
     {
         switch (node->string.string[0])
         {
@@ -94,10 +94,14 @@ static double TEST_eval_AST_node(AST_node *node)
             exit(EXIT_FAILURE);
         }
     }
-    else if (node->token.type == TokenNumber)
+    else if (node->type == NodeLiteral)
     {
         ret = strtol(node->string.string, NULL, 10);
         return (double)ret;
+    }
+    else if (node->type == NodeParenthesis)
+    {
+        return TEST_eval_AST_node(node->right);
     }
     else
     {

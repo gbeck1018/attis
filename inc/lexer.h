@@ -36,16 +36,15 @@ typedef struct token_list_t
 } token_list_t;
 
 /**
- * @brief A convenient and safe for_each loop for the token list
- *
- * @param[in, out] node a token_node pointer which will serve as the index
- * @param[in] temp a temp token_node pointer to pre fetch the next value
- * @param[in] list A pointer to the list to iterate through
- * @note temp and list should not be used, they are not safe
+ * @brief A convenient and safe for_each loop for the token list, starting from
+ * a given node
+ * @param[in, out] node The starting token node
+ * @param[in] temp A temp token_node pointer to pre fetch the next value
+ * @note temp and list should not be used, they are not safe. Set node before
+ * using.
  */
-#define for_each_token_node(node, temp, list)                            \
-    for (node = (list)->head, temp = (node == NULL ? NULL : node->next); \
-         node != NULL;                                                   \
+#define for_each_token_node_from(node, temp)                      \
+    for (temp = (node == NULL ? NULL : node->next); node != NULL; \
          node = temp, temp = (node == NULL ? NULL : node->next))
 
 token_list_t *lex_file(FILE *input_file);

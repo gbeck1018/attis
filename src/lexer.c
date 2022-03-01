@@ -116,8 +116,8 @@ static void put_token_node(token_list_node *old_token_node)
 void put_token_node_list()
 {
     token_list_node *elem, *temp;
-
-    for_each_token_node(elem, temp, &token_list)
+    elem = token_list.head;
+    for_each_token_node_from(elem, temp)
     {
         put_token_node(elem);
     }
@@ -169,11 +169,12 @@ token_list_t *lex_file(FILE *input_file)
             if (token_list.tail == NULL
                 || token_list.tail->token.type == TokenBinaryOperator)
             {
-                add_new_token_node(NULL, 4);
+                ASSERT(0, "Prefix negative sign is currently not supported\n");
+                /*add_new_token_node(NULL, 4);
                 token_list.tail->token.type = TokenNumber;
                 add_character(&token_list.tail->string,
                               (char)current_character);
-                break;
+                break;*/
             }
             // If it isn't a negative sign, it's a simple subtraction sign.
             FALL_THROUGH

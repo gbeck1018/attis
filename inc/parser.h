@@ -2,12 +2,19 @@
 
 #include "lexer.h"
 
+typedef enum
+{
+    NodeLiteral,
+    NodeBinaryOperator,
+    NodeParenthesis,
+    NodeUnknown
+} node_type_enum;
+
 typedef struct AST_node
 {
     struct AST_node *left;
     struct AST_node *right;
-    token_type_struct token;
-    size_t parenthesis_depth;
+    node_type_enum type;
     string_t string;
 } AST_node;
 

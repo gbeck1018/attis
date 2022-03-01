@@ -9,9 +9,6 @@
 #include "parser.h"
 #include "string_t.h"
 
-/**
- * STATE: This holds the AST for parsing
- */
 static AST_t AST = {NULL};
 
 /**
@@ -45,13 +42,8 @@ static int get_operator_priority(char c)
  */
 static int lower_priority(AST_node const *LHS, AST_node const *RHS)
 {
-    ASSERT(LHS->token.type == TokenBinaryOperator
-               && RHS->token.type == TokenBinaryOperator,
+    ASSERT(LHS->type == NodeBinaryOperator && RHS->type == NodeBinaryOperator,
            "Incompadible priority comparison\n");
-    if (LHS->parenthesis_depth != RHS->parenthesis_depth)
-    {
-        return LHS->parenthesis_depth < RHS->parenthesis_depth;
-    }
     return get_operator_priority(LHS->string.string[0])
            < get_operator_priority(RHS->string.string[0]);
 }
@@ -59,10 +51,10 @@ static int lower_priority(AST_node const *LHS, AST_node const *RHS)
 /**
  * @brief Allocate an AST node
  * @param node The node to copy from
- * @param parenthesis_depth The current parenthesis depth
+ * @param type The type of node to create
  * @return The new AST node
  */
-static AST_node *get_AST_node(token_list_node *node, size_t parenthesis_depth)
+static AST_node *get_AST_node(token_list_node *node, node_type_enum type)
 {
     // Allocate our node and space for the string
     AST_node *return_node = malloc(sizeof(*return_node));
@@ -72,8 +64,7 @@ static AST_node *get_AST_node(token_list_node *node, size_t parenthesis_depth)
 
     return_node->left = NULL;
     return_node->right = NULL;
-    return_node->token.type = node->token.type;
-    return_node->parenthesis_depth = parenthesis_depth;
+    return_node->type = type;
 
     return return_node;
 }
@@ -119,34 +110,32 @@ void put_AST()
     TEMP_print_ast(node->right);
 }*/
 
-/**
- * @brief Build an AST from a list of tokens
- * @param token_list The list of token to use to build the AST
- * @return The root of the AST
- */
-AST_t *parse_lex(token_list_t *token_list)
+static token_list_node *rec_elem;
+
+static AST_node *recursive_parse(token_list_node *start)
 {
+    AST_node *root_AST_node = NULL;
+
     AST_node *current_AST_node;
     AST_node *temp_AST_node, *prev_AST_node;
 
-    size_t parenthesis_depth = 0;
-
     // Place each token into an AST in order
     token_list_node *elem, *temp;
-    for_each_token_node(elem, temp, token_list)
+    elem = start;
+    for_each_token_node_from(elem, temp)
     {
-
+        printf("P: %s\n", elem->string.string);
         switch (elem->token.type)
         {
         case TokenBinaryOperator:
-            ASSERT(AST.root != NULL,
+            ASSERT(root_AST_node != NULL,
                    "Can't begin and AST with a binary operator\n");
-            current_AST_node = get_AST_node(elem, parenthesis_depth);
+            current_AST_node = get_AST_node(elem, NodeBinaryOperator);
 
             // Search for the appropriate place for this operation by proirity
-            temp_AST_node = AST.root;
+            temp_AST_node = root_AST_node;
             prev_AST_node = NULL;
-            while (temp_AST_node->token.type == TokenBinaryOperator
+            while (temp_AST_node->type == NodeBinaryOperator
                    && lower_priority(temp_AST_node, current_AST_node))
             {
                 // This node is of a lower priority, iterate to the right
@@ -161,7 +150,7 @@ AST_t *parse_lex(token_list_t *token_list)
             // Special case if this is to become the new root
             if (prev_AST_node == NULL)
             {
-                AST.root = current_AST_node;
+                root_AST_node = current_AST_node;
             }
 
             // Else, replace the old L-value with our new node
@@ -171,33 +160,67 @@ AST_t *parse_lex(token_list_t *token_list)
             }
             break;
         case TokenNumber:
-            current_AST_node = get_AST_node(elem, parenthesis_depth);
+            current_AST_node = get_AST_node(elem, NodeLiteral);
             // If this is the first token, it is an L value
-            if (AST.root == NULL)
+            if (root_AST_node == NULL)
             {
-                AST.root = current_AST_node;
+                root_AST_node = current_AST_node;
                 break;
             }
             // Else, this can be placed in the first open R value location
-            temp_AST_node = AST.root;
+            temp_AST_node = root_AST_node;
             while (temp_AST_node != NULL && temp_AST_node->right != NULL
-                   && temp_AST_node->token.type == TokenBinaryOperator)
+                   && temp_AST_node->type == NodeBinaryOperator)
             {
                 temp_AST_node = temp_AST_node->right;
             }
             temp_AST_node->right = current_AST_node;
             break;
         case TokenOpenParenthesis:
-            parenthesis_depth += 1;
+            current_AST_node = get_AST_node(elem, NodeParenthesis);
+            current_AST_node->right = recursive_parse(elem->next);
+
+            // TODO we need to update 'elem' to take into account the
+            // already parsed tokens in the recursive case. This is not the
+            // right way to do this, it's just temporary.
+            temp = rec_elem->next;
+
+            if (root_AST_node == NULL)
+            {
+                root_AST_node = current_AST_node;
+
+                break;
+            }
+            temp_AST_node = root_AST_node;
+            while (temp_AST_node != NULL && temp_AST_node->right != NULL
+                   && temp_AST_node->type == NodeBinaryOperator)
+            {
+                temp_AST_node = temp_AST_node->right;
+            }
+            temp_AST_node->right = current_AST_node;
             break;
         case TokenCloseParenthesis:
-            parenthesis_depth -= 1;
-            break;
+            // We're somewhere down a recursive rabbit hole, move one level up.
+            rec_elem = elem;
+            return root_AST_node;
         default:
-            printf("TOOD handle other tokens in parse_lex\n");
+            printf("TODO handle other tokens in parse_lex\n");
             exit(EXIT_FAILURE);
         }
     }
+
+    return root_AST_node;
+}
+
+/**
+ * @brief Build an AST from a list of tokens
+ * @param token_list The list of token to use to build the AST
+ * @return The root of the AST
+ */
+AST_t *parse_lex(token_list_t *token_list)
+{
+    AST_node *node = recursive_parse(token_list->head);
+    AST.root = node;
     // TEMP_print_ast(AST.root);
     return &AST;
 }
