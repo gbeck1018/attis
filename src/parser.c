@@ -15,11 +15,11 @@
 static AST_t AST = {NULL};
 
 /**
- * @brief Get the priority of an operator
- * @param c The character representing the operator
- * @note Don't rely on the absolute value here, just the relative values.
+ * @brief Return the relative priority of an operator
+ * @param c The character to evaluate
+ * @note Don't rely on the absolute values here, only the relative ones
  */
-static int get_priority(char c)
+static int get_operator_priority(char c)
 {
     // TODO This shouldn't be a character, because operators like '&&' will
     // need more information.
@@ -33,27 +33,47 @@ static int get_priority(char c)
     case '-':
         return 10;
     default:
+        ASSERT(0, "Unknown operator priority\n");
         return -1;
     }
 }
 
 /**
+ * @brief Return true if the LHS is lower priority than the RHS
+ * @param LHS The node to check if it is lower priority
+ * @param RHS The node to check against
+ */
+static int lower_priority(AST_node const *LHS, AST_node const *RHS)
+{
+    ASSERT(LHS->token.type == TokenBinaryOperator
+               && RHS->token.type == TokenBinaryOperator,
+           "Incompadible priority comparison\n");
+    if (LHS->parenthesis_depth != RHS->parenthesis_depth)
+    {
+        return LHS->parenthesis_depth < RHS->parenthesis_depth;
+    }
+    return get_operator_priority(LHS->string.string[0])
+           < get_operator_priority(RHS->string.string[0]);
+}
+
+/**
  * @brief Allocate an AST node
- * @param token The kind of token to add
- * @param string The string_t to copy
+ * @param node The node to copy from
+ * @param parenthesis_depth The current parenthesis depth
  * @return The new AST node
  */
-static AST_node *get_AST_node(token_type_struct token, string_t *string)
+static AST_node *get_AST_node(token_list_node *node, size_t parenthesis_depth)
 {
     // Allocate our node and space for the string
     AST_node *return_node = malloc(sizeof(*return_node));
     ASSERT(return_node != NULL, "Failed to allocate token node\n");
 
-    get_string_clone(&return_node->string, string);
+    get_string_clone(&return_node->string, &node->string);
 
     return_node->left = NULL;
     return_node->right = NULL;
-    return_node->token.type = token.type;
+    return_node->token.type = node->token.type;
+    return_node->parenthesis_depth = parenthesis_depth;
 
     return return_node;
 }
@@ -86,6 +106,19 @@ void put_AST()
     AST.root = NULL;
 }
 
+/*static void TEMP_print_ast(AST_node *node)
+{
+    if (node == NULL)
+    {
+        return;
+    }
+    printf("Val: %s\n", node->string.string);
+    printf("Left:\n");
+    TEMP_print_ast(node->left);
+    printf("Right:\n");
+    TEMP_print_ast(node->right);
+}*/
+
 /**
  * @brief Build an AST from a list of tokens
  * @param token_list The list of token to use to build the AST
@@ -96,46 +129,25 @@ AST_t *parse_lex(token_list_t *token_list)
     AST_node *current_AST_node;
     AST_node *temp_AST_node, *prev_AST_node;
 
+    size_t parenthesis_depth = 0;
+
     // Place each token into an AST in order
     token_list_node *elem, *temp;
     for_each_token_node(elem, temp, token_list)
     {
-        current_AST_node = get_AST_node(elem->token, &elem->string);
 
-        if (AST.root == NULL)
+        switch (elem->token.type)
         {
-            AST.root = current_AST_node;
-            continue;
-        }
-
-        switch (current_AST_node->token.type)
-        {
-        case TokenNumber:
-            // If this is the first token, it is an L value
-            if (AST.root == NULL)
-            {
-                AST.root = current_AST_node;
-                break;
-            }
-            // Else, this can be placed in the first open R value location
-            temp_AST_node = AST.root;
-            while (temp_AST_node != NULL && temp_AST_node->right != NULL
-                   && temp_AST_node->token.type == TokenBinaryOperator)
-            {
-                temp_AST_node = temp_AST_node->right;
-            }
-            temp_AST_node->right = current_AST_node;
-            break;
         case TokenBinaryOperator:
             ASSERT(AST.root != NULL,
                    "Can't begin and AST with a binary operator\n");
+            current_AST_node = get_AST_node(elem, parenthesis_depth);
 
             // Search for the appropriate place for this operation by proirity
             temp_AST_node = AST.root;
             prev_AST_node = NULL;
             while (temp_AST_node->token.type == TokenBinaryOperator
-                   && get_priority(temp_AST_node->string.string[0])
-                          < get_priority(current_AST_node->string.string[0]))
+                   && lower_priority(temp_AST_node, current_AST_node))
             {
                 // This node is of a lower priority, iterate to the right
                 prev_AST_node = temp_AST_node;
@@ -157,13 +169,35 @@ AST_t *parse_lex(token_list_t *token_list)
             {
                 prev_AST_node->right = current_AST_node;
             }
-
+            break;
+        case TokenNumber:
+            current_AST_node = get_AST_node(elem, parenthesis_depth);
+            // If this is the first token, it is an L value
+            if (AST.root == NULL)
+            {
+                AST.root = current_AST_node;
+                break;
+            }
+            // Else, this can be placed in the first open R value location
+            temp_AST_node = AST.root;
+            while (temp_AST_node != NULL && temp_AST_node->right != NULL
+                   && temp_AST_node->token.type == TokenBinaryOperator)
+            {
+                temp_AST_node = temp_AST_node->right;
+            }
+            temp_AST_node->right = current_AST_node;
+            break;
+        case TokenOpenParenthesis:
+            parenthesis_depth += 1;
+            break;
+        case TokenCloseParenthesis:
+            parenthesis_depth -= 1;
             break;
         default:
             printf("TOOD handle other tokens in parse_lex\n");
             exit(EXIT_FAILURE);
         }
     }
-
+    // TEMP_print_ast(AST.root);
     return &AST;
 }

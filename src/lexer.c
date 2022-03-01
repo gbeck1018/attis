@@ -154,23 +154,14 @@ token_list_t *lex_file(FILE *input_file)
         // Parse the token associated with the current character
         switch (current_character)
         {
-        case '0':
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-        case '9':
-            // Check to see if we're appending characters or making a new token
-            if (token_list.tail == NULL
-                || token_list.tail->token.type != TokenNumber)
-            {
-                add_new_token_node(NULL, 3);
-                token_list.tail->token.type = TokenNumber;
-            }
+        case '(':
+            add_new_token_node(NULL, 2);
+            token_list.tail->token.type = TokenOpenParenthesis;
+            add_character(&token_list.tail->string, (char)current_character);
+            break;
+        case ')':
+            add_new_token_node(NULL, 2);
+            token_list.tail->token.type = TokenCloseParenthesis;
             add_character(&token_list.tail->string, (char)current_character);
             break;
         case '-':
@@ -190,13 +181,34 @@ token_list_t *lex_file(FILE *input_file)
         case '*':
         case '/':
         case '%':
-            // Check that we're coming after a number
+            // Check that we're coming after a number or expression
             ASSERT(token_list.tail != NULL
-                       && token_list.tail->token.type == TokenNumber
+                       && (token_list.tail->token.type == TokenNumber
+                           || token_list.tail->token.type
+                                  == TokenCloseParenthesis)
                        && previous_character != '-',
                    "Invalid binary operator\n");
             add_new_token_node(NULL, 2);
             token_list.tail->token.type = TokenBinaryOperator;
+            add_character(&token_list.tail->string, (char)current_character);
+            break;
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+            // Check to see if we're appending characters or making a new token
+            if (token_list.tail == NULL
+                || token_list.tail->token.type != TokenNumber)
+            {
+                add_new_token_node(NULL, 3);
+                token_list.tail->token.type = TokenNumber;
+            }
             add_character(&token_list.tail->string, (char)current_character);
             break;
         case '\r':
@@ -211,7 +223,6 @@ token_list_t *lex_file(FILE *input_file)
             printf("Unknown Character %c\n", current_character);
             exit(EXIT_FAILURE);
         }
-
         previous_character = current_character;
     }
 

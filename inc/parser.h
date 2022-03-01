@@ -7,6 +7,7 @@ typedef struct AST_node
     struct AST_node *left;
     struct AST_node *right;
     token_type_struct token;
+    size_t parenthesis_depth;
     string_t string;
 } AST_node;
 
