@@ -13,22 +13,40 @@ static AST_t AST = {NULL};
 
 /**
  * @brief Return the relative priority of an operator
- * @param c The character to evaluate
+ * @param t The type to evaluate
+ * @param s The string to evaluate
  * @note Don't rely on the absolute values here, only the relative ones
  */
-static int get_operator_priority(char c)
+static int get_operator_priority(node_type_enum t, string_t const *s)
 {
     // TODO This shouldn't be a character, because operators like '&&' will
     // need more information.
-    switch (c)
+    switch (t)
     {
-    case '*':
-    case '/':
-    case '%':
-        return 100;
-    case '+':
-    case '-':
-        return 10;
+    case NodeBinaryOperator:
+        switch (s->string[0])
+        {
+        case '*':
+        case '/':
+        case '%':
+            return 100;
+        case '+':
+        case '-':
+            return 10;
+        default:
+            ASSERT(0, "Unknown operator priority\n");
+            return -1;
+        }
+    case NodeUnaryOperator:
+        switch (s->string[0])
+        {
+        case '+':
+        case '-':
+            return 1000;
+        default:
+            ASSERT(0, "Unknown operator priority\n");
+            return -1;
+        }
     default:
         ASSERT(0, "Unknown operator priority\n");
         return -1;
@@ -42,10 +60,8 @@ static int get_operator_priority(char c)
  */
 static int lower_priority(AST_node const *LHS, AST_node const *RHS)
 {
-    ASSERT(LHS->type == NodeBinaryOperator && RHS->type == NodeBinaryOperator,
-           "Incompadible priority comparison\n");
-    return get_operator_priority(LHS->string.string[0])
-           < get_operator_priority(RHS->string.string[0]);
+    return get_operator_priority(LHS->type, &LHS->string)
+           < get_operator_priority(RHS->type, &RHS->string);
 }
 
 /**
@@ -142,7 +158,28 @@ AST_t *parse_lex(token_list_t *token_list)
             // Search for the appropriate place for this operation by proirity
             temp_AST_node = AST.root->right;
             prev_AST_node = AST.root;
-            while (temp_AST_node->type == NodeBinaryOperator
+            while ((temp_AST_node->type == NodeBinaryOperator
+                    || temp_AST_node->type == NodeUnaryOperator)
+                   && lower_priority(temp_AST_node, current_AST_node))
+            {
+                // This node is of a lower priority, iterate to the right
+                prev_AST_node = temp_AST_node;
+                temp_AST_node = temp_AST_node->right;
+            }
+
+            // We've found the location to put our new node. Rotate the lower
+            // priority node to the left.
+            current_AST_node->left = temp_AST_node;
+            prev_AST_node->right = current_AST_node;
+            break;
+        case TokenUnaryOperator:
+            current_AST_node = get_AST_node(elem, NodeUnaryOperator);
+            // Search for the appropriate place for this operation by proirity
+            temp_AST_node = AST.root->right;
+            prev_AST_node = AST.root;
+            while (temp_AST_node
+                   && (temp_AST_node->type == NodeBinaryOperator
+                       || temp_AST_node->type == NodeUnaryOperator)
                    && lower_priority(temp_AST_node, current_AST_node))
             {
                 // This node is of a lower priority, iterate to the right

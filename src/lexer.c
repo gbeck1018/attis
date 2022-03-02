@@ -165,20 +165,20 @@ token_list_t *lex_file(FILE *input_file)
             add_character(&token_list.tail->string, (char)current_character);
             break;
         case '-':
-            // We need a special case if this is a negative sign
+        case '+':
+            // We need a special case if this is a negative/plus sign
             if (token_list.tail == NULL
-                || token_list.tail->token.type == TokenBinaryOperator)
+                || (token_list.tail->token.type != TokenNumber
+                    && token_list.tail->token.type != TokenCloseParenthesis))
             {
-                ASSERT(0, "Prefix negative sign is currently not supported\n");
-                /*add_new_token_node(NULL, 4);
-                token_list.tail->token.type = TokenNumber;
+                add_new_token_node(NULL, 2);
+                token_list.tail->token.type = TokenUnaryOperator;
                 add_character(&token_list.tail->string,
                               (char)current_character);
-                break;*/
+                break;
             }
-            // If it isn't a negative sign, it's a simple subtraction sign.
+            // If it isn't a negative sign, it's a simple subtraction/add sign.
             FALL_THROUGH
-        case '+':
         case '*':
         case '/':
         case '%':

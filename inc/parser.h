@@ -4,11 +4,12 @@
 
 typedef enum
 {
-    NodeLiteral = 1,
-    NodeBinaryOperator = 2,
-    NodeParenthesis = 3,
-    NodeRoot = -1,
-    NodeUnknown = -2
+    NodeLiteral,
+    NodeBinaryOperator,
+    NodeUnaryOperator,
+    NodeParenthesis,
+    NodeRoot,
+    NodeUnknown
 } node_type_enum;
 
 typedef struct AST_node

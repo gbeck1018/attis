@@ -60,7 +60,20 @@ static double TEST_eval_AST_node(AST_node *node)
 {
     long ret;
     double temp;
-    if (node->type == NodeBinaryOperator)
+    if (node->type == NodeUnaryOperator)
+    {
+        switch (node->string.string[0])
+        {
+        case '+':
+            return TEST_eval_AST_node(node->right);
+        case '-':
+            return -TEST_eval_AST_node(node->right);
+        default:
+            printf("Unknown AST token in eval\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+    else if (node->type == NodeBinaryOperator)
     {
         switch (node->string.string[0])
         {

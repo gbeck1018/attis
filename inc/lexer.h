@@ -10,6 +10,7 @@ typedef struct
     {
         TokenNumber,
         TokenBinaryOperator,
+        TokenUnaryOperator,
         TokenOpenParenthesis,
         TokenCloseParenthesis,
         TokenWhitespace,
