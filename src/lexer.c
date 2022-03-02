@@ -167,6 +167,9 @@ token_list_t *lex_file(FILE *input_file)
         case '-':
         case '+':
             // We need a special case if this is a negative/plus sign
+            ASSERT(!(token_list.tail != NULL
+                     && token_list.tail->token.type == TokenUnaryOperator),
+                   "Bad unary operator\n");
             if (token_list.tail == NULL
                 || (token_list.tail->token.type != TokenNumber
                     && token_list.tail->token.type != TokenCloseParenthesis))

@@ -128,6 +128,48 @@ void put_AST()
     AST.root = NULL;
 }
 
+static void find_and_place_operator(AST_node *current_AST_node)
+{
+    AST_node *temp_AST_node, *prev_AST_node;
+    // Search for the appropriate place for this operation by proirity
+    temp_AST_node = AST.root->right;
+    prev_AST_node = AST.root;
+    while (temp_AST_node
+           && (temp_AST_node->type == NodeBinaryOperator
+               || temp_AST_node->type == NodeUnaryOperator)
+           && lower_priority(temp_AST_node, current_AST_node))
+    {
+        // This node is of a lower priority, iterate to the right
+        prev_AST_node = temp_AST_node;
+        temp_AST_node = temp_AST_node->right;
+    }
+
+    // We've found the location to put our new node. Rotate the lower
+    // priority node to the left.
+    current_AST_node->left = temp_AST_node;
+    prev_AST_node->right = current_AST_node;
+}
+
+static void find_and_place_value(AST_node *current_AST_node)
+{
+    AST_node *temp_AST_node;
+
+    // If this is the first token, it is an L value
+    if (AST.root->right == NULL)
+    {
+        AST.root->right = current_AST_node;
+        return;
+    }
+    // Else, this can be placed in the first open R value location
+    temp_AST_node = AST.root->right;
+    while (temp_AST_node != NULL && temp_AST_node->right != NULL
+           && temp_AST_node->type == NodeBinaryOperator)
+    {
+        temp_AST_node = temp_AST_node->right;
+    }
+    temp_AST_node->right = current_AST_node;
+}
+
 /**
  * @brief Build an AST from a list of tokens
  * @param token_list The list of token to use to build the AST
@@ -141,7 +183,7 @@ AST_t *parse_lex(token_list_t *token_list)
 
     AST_node *current_AST_node = NULL;
 
-    AST_node *temp_AST_node, *prev_AST_node;
+    AST_node *temp_AST_node;
 
     // Place each token into an AST in order
     token_list_node *elem, *temp;
@@ -155,81 +197,23 @@ AST_t *parse_lex(token_list_t *token_list)
             ASSERT(AST.root->right != NULL,
                    "Can't begin and AST with a binary operator\n");
             current_AST_node = get_AST_node(elem, NodeBinaryOperator);
-            // Search for the appropriate place for this operation by proirity
-            temp_AST_node = AST.root->right;
-            prev_AST_node = AST.root;
-            while ((temp_AST_node->type == NodeBinaryOperator
-                    || temp_AST_node->type == NodeUnaryOperator)
-                   && lower_priority(temp_AST_node, current_AST_node))
-            {
-                // This node is of a lower priority, iterate to the right
-                prev_AST_node = temp_AST_node;
-                temp_AST_node = temp_AST_node->right;
-            }
-
-            // We've found the location to put our new node. Rotate the lower
-            // priority node to the left.
-            current_AST_node->left = temp_AST_node;
-            prev_AST_node->right = current_AST_node;
+            find_and_place_operator(current_AST_node);
             break;
         case TokenUnaryOperator:
             current_AST_node = get_AST_node(elem, NodeUnaryOperator);
-            // Search for the appropriate place for this operation by proirity
-            temp_AST_node = AST.root->right;
-            prev_AST_node = AST.root;
-            while (temp_AST_node
-                   && (temp_AST_node->type == NodeBinaryOperator
-                       || temp_AST_node->type == NodeUnaryOperator)
-                   && lower_priority(temp_AST_node, current_AST_node))
-            {
-                // This node is of a lower priority, iterate to the right
-                prev_AST_node = temp_AST_node;
-                temp_AST_node = temp_AST_node->right;
-            }
-
-            // We've found the location to put our new node. Rotate the lower
-            // priority node to the left.
-            current_AST_node->left = temp_AST_node;
-            prev_AST_node->right = current_AST_node;
+            find_and_place_operator(current_AST_node);
             break;
         case TokenNumber:
             current_AST_node = get_AST_node(elem, NodeLiteral);
-            // If this is the first token, it is an L value
-            if (AST.root->right == NULL)
-            {
-                AST.root->right = current_AST_node;
-                break;
-            }
-            // Else, this can be placed in the first open R value location
-            temp_AST_node = AST.root->right;
-            while (temp_AST_node != NULL && temp_AST_node->right != NULL
-                   && temp_AST_node->type == NodeBinaryOperator)
-            {
-                temp_AST_node = temp_AST_node->right;
-            }
-            temp_AST_node->right = current_AST_node;
+            find_and_place_value(current_AST_node);
             break;
         case TokenOpenParenthesis:
             parenthesis_depth += 1;
             current_AST_node = get_AST_node(elem, NodeParenthesis);
+            // Save the old root, as we will temporarily update it
             current_AST_node->old_root = AST.root;
-
-            // If this is the first token, it is an L value
-            if (AST.root->right == NULL)
-            {
-                AST.root->right = current_AST_node;
-                AST.root = current_AST_node;
-                break;
-            }
-            // Else, this can be placed in the first open R value location
-            temp_AST_node = AST.root->right;
-            while (temp_AST_node != NULL && temp_AST_node->right != NULL
-                   && temp_AST_node->type == NodeBinaryOperator)
-            {
-                temp_AST_node = temp_AST_node->right;
-            }
-            temp_AST_node->right = current_AST_node;
-
+            find_and_place_value(current_AST_node);
+            // Root moves (recoverably) to the new parenthesis context
             AST.root = current_AST_node;
             break;
         case TokenCloseParenthesis:
