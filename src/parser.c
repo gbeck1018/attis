@@ -136,7 +136,6 @@ AST_t *parse_lex(token_list_t *token_list)
         switch (elem->token.type)
         {
         case TokenBinaryOperator:
-            ASSERT(AST.root != NULL, "Root should never be null\n");
             ASSERT(AST.root->right != NULL,
                    "Can't begin and AST with a binary operator\n");
             current_AST_node = get_AST_node(elem, NodeBinaryOperator);
@@ -154,18 +153,7 @@ AST_t *parse_lex(token_list_t *token_list)
             // We've found the location to put our new node. Rotate the lower
             // priority node to the left.
             current_AST_node->left = temp_AST_node;
-
-            // Special case if this is to become the new root
-            if (prev_AST_node == AST.root)
-            {
-                AST.root->right = current_AST_node;
-            }
-
-            // Else, replace the old L-value with our new node
-            else
-            {
-                prev_AST_node->right = current_AST_node;
-            }
+            prev_AST_node->right = current_AST_node;
             break;
         case TokenNumber:
             current_AST_node = get_AST_node(elem, NodeLiteral);
