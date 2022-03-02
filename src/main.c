@@ -103,6 +103,10 @@ static double TEST_eval_AST_node(AST_node *node)
     {
         return TEST_eval_AST_node(node->right);
     }
+    else if (node->type == NodeRoot)
+    {
+        return TEST_eval_AST_node(node->right);
+    }
     else
     {
         printf("Unknown AST token in eval\n");
