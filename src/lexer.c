@@ -37,7 +37,7 @@ static token_list_node *get_token_node(char const *input_string,
 
     return_node->next = NULL;
     return_node->prev = NULL;
-    return_node->token.type = TokenUnknown;
+    return_node->token = TokenUnknown;
 
     token_list.size += 1;
 
@@ -135,14 +135,13 @@ void put_token_node_list()
 token_list_t *lex_file(FILE *input_file)
 {
     int current_character = EOF;
-    int previous_character = EOF;
 
     ASSERT(input_file != NULL, "Lexer given invalid file input\n");
 
     for (;;)
     {
         current_character = getc(input_file);
-
+        
         // Return is EOF either if the end of the file was reached or there was
         // an error
         if (current_character == EOF)
@@ -154,28 +153,26 @@ token_list_t *lex_file(FILE *input_file)
         // Parse the token associated with the current character
         switch (current_character)
         {
-        case '(':
-            add_new_token_node(NULL, 2);
-            token_list.tail->token.type = TokenOpenParenthesis;
-            add_character(&token_list.tail->string, (char)current_character);
+        case '\r':
+            /*current_token = TokenCR;
+            printf("Token: TokenCR\n");*/
             break;
-        case ')':
-            add_new_token_node(NULL, 2);
-            token_list.tail->token.type = TokenCloseParenthesis;
-            add_character(&token_list.tail->string, (char)current_character);
+        case '\n':
+            /*current_token = TokenLF;
+            printf("Token: TokenLF\n");*/
             break;
         case '-':
         case '+':
             // We need a special case if this is a negative/plus sign
-            ASSERT(!(token_list.tail != NULL
-                     && token_list.tail->token.type == TokenUnaryOperator),
-                   "Bad unary operator\n");
             if (token_list.tail == NULL
-                || (token_list.tail->token.type != TokenNumber
-                    && token_list.tail->token.type != TokenCloseParenthesis))
+                || token_list.tail->token == TokenBinaryOperator
+                || token_list.tail->token == TokenOpenParenthesis
+                || token_list.tail->token == TokenSemicolon)
             {
+                ASSERT(token_list.tail->token != TokenUnaryOperator,
+                       "Bad unary operator\n");
                 add_new_token_node(NULL, 2);
-                token_list.tail->token.type = TokenUnaryOperator;
+                token_list.tail->token = TokenUnaryOperator;
                 add_character(&token_list.tail->string,
                               (char)current_character);
                 break;
@@ -187,13 +184,31 @@ token_list_t *lex_file(FILE *input_file)
         case '%':
             // Check that we're coming after a number or expression
             ASSERT(token_list.tail != NULL
-                       && (token_list.tail->token.type == TokenNumber
-                           || token_list.tail->token.type
-                                  == TokenCloseParenthesis)
-                       && previous_character != '-',
-                   "Invalid binary operator\n");
+                       && (token_list.tail->token == TokenCloseParenthesis
+                           || token_list.tail->token == TokenLiteral),
+                   "Bad binary operator\n");
             add_new_token_node(NULL, 2);
-            token_list.tail->token.type = TokenBinaryOperator;
+            token_list.tail->token = TokenBinaryOperator;
+            add_character(&token_list.tail->string, (char)current_character);
+            break;
+        case '(':
+            if (token_list.tail != NULL)
+            {
+                ASSERT(token_list.tail->token != TokenCloseParenthesis
+                           && token_list.tail->token != TokenLiteral,
+                       "Bad open parenthesis\n");
+            }
+            add_new_token_node(NULL, 2);
+            token_list.tail->token = TokenOpenParenthesis;
+            add_character(&token_list.tail->string, (char)current_character);
+            break;
+        case ')':
+            ASSERT(token_list.tail != NULL
+                       && (token_list.tail->token == TokenCloseParenthesis
+                           || token_list.tail->token == TokenLiteral),
+                   "Bad closed parenthesis\n");
+            add_new_token_node(NULL, 2);
+            token_list.tail->token = TokenCloseParenthesis;
             add_character(&token_list.tail->string, (char)current_character);
             break;
         case '0':
@@ -208,32 +223,35 @@ token_list_t *lex_file(FILE *input_file)
         case '9':
             // Check to see if we're appending characters or making a new token
             if (token_list.tail == NULL
-                || token_list.tail->token.type != TokenNumber)
+                || token_list.tail->token != TokenLiteral)
             {
                 add_new_token_node(NULL, 3);
-                token_list.tail->token.type = TokenNumber;
+                token_list.tail->token = TokenLiteral;
             }
             add_character(&token_list.tail->string, (char)current_character);
             break;
-        case '\r':
-            /*current_token = TokenCR;
-            printf("Token: TokenCR\n");*/
-            break;
-        case '\n':
-            /*current_token = TokenLF;
-            printf("Token: TokenLF\n");*/
+        case ';':
+            ASSERT(token_list.tail == NULL
+                       || token_list.tail->token == TokenCloseParenthesis
+                       || token_list.tail->token == TokenLiteral
+                       || token_list.tail->token == TokenSemicolon,
+                   "Bad semicolon\n");
+            add_new_token_node(NULL, 2);
+            token_list.tail->token = TokenSemicolon;
+            add_character(&token_list.tail->string, (char)current_character);
             break;
         default:
             printf("Unknown Character %c\n", current_character);
             exit(EXIT_FAILURE);
         }
-        previous_character = current_character;
     }
 
     if (token_list.tail != NULL)
     {
-        ASSERT(token_list.tail->token.type != TokenBinaryOperator,
-               "Invalid binary operator\n");
+        ASSERT(token_list.tail->token == TokenCloseParenthesis
+                   || token_list.tail->token == TokenLiteral
+                   || token_list.tail->token == TokenSemicolon,
+               "Invalid EOF\n");
     }
 
     return &token_list;

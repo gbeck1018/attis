@@ -4,21 +4,19 @@
 
 #include <stdio.h> // `FILE`
 
-typedef struct
+typedef enum
 {
-    enum
-    {
-        TokenNumber,
-        TokenBinaryOperator,
-        TokenUnaryOperator,
-        TokenOpenParenthesis,
-        TokenCloseParenthesis,
-        TokenWhitespace,
-        TokenCR,
-        TokenLF,
-        TokenEOF,
-        TokenUnknown
-    } type;
+    TokenCR,
+    TokenLF,
+    TokenWhitespace,
+    TokenUnaryOperator,
+    TokenBinaryOperator,
+    TokenOpenParenthesis,
+    TokenCloseParenthesis,
+    TokenLiteral,
+    TokenSemicolon,
+    TokenEOF,
+    TokenUnknown
 } token_type_struct;
 
 typedef struct token_list_node

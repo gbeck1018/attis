@@ -4,22 +4,19 @@
 
 typedef enum
 {
-    NodeLiteral,
-    NodeBinaryOperator,
     NodeUnaryOperator,
+    NodeBinaryOperator,
     NodeParenthesis,
+    NodeLiteral,
     NodeRoot,
     NodeUnknown
 } node_type_enum;
 
 typedef struct AST_node
 {
-    union
-    {
-        struct AST_node *left;
-        struct AST_node *old_root;
-    };
+    struct AST_node *left;
     struct AST_node *right;
+    struct AST_node *old_root;
     node_type_enum type;
     string_t string;
 } AST_node;

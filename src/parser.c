@@ -178,11 +178,9 @@ static void find_and_place_value(AST_node *current_AST_node)
 AST_t *parse_lex(token_list_t *token_list)
 {
     size_t parenthesis_depth = 0;
-
     AST.root = get_AST_node(NULL, NodeRoot);
 
     AST_node *current_AST_node = NULL;
-
     AST_node *temp_AST_node;
 
     // Place each token into an AST in order
@@ -190,22 +188,17 @@ AST_t *parse_lex(token_list_t *token_list)
     elem = token_list->head;
     for_each_token_node_from(elem, temp)
     {
-        printf("Parse: %s\n", elem->string.string);
-        switch (elem->token.type)
+        switch (elem->token)
         {
+        case TokenUnaryOperator:
+            current_AST_node = get_AST_node(elem, NodeUnaryOperator);
+            find_and_place_operator(current_AST_node);
+            break;
         case TokenBinaryOperator:
             ASSERT(AST.root->right != NULL,
                    "Can't begin and AST with a binary operator\n");
             current_AST_node = get_AST_node(elem, NodeBinaryOperator);
             find_and_place_operator(current_AST_node);
-            break;
-        case TokenUnaryOperator:
-            current_AST_node = get_AST_node(elem, NodeUnaryOperator);
-            find_and_place_operator(current_AST_node);
-            break;
-        case TokenNumber:
-            current_AST_node = get_AST_node(elem, NodeLiteral);
-            find_and_place_value(current_AST_node);
             break;
         case TokenOpenParenthesis:
             parenthesis_depth += 1;
@@ -227,6 +220,10 @@ AST_t *parse_lex(token_list_t *token_list)
             temp_AST_node = AST.root->old_root;
             AST.root->old_root = NULL;
             AST.root = temp_AST_node;
+            break;
+        case TokenLiteral:
+            current_AST_node = get_AST_node(elem, NodeLiteral);
+            find_and_place_value(current_AST_node);
             break;
         default:
             printf("TODO handle other tokens in parse_lex\n");
