@@ -116,8 +116,8 @@ static double TEST_eval_AST_node(AST_node *node)
     {
         return TEST_eval_AST_node(node->right);
     }
-    else if (node->type == NodeRoot)
-    {
+    else if (node->type == NodeScope)
+    { // TODO this will behave differently once scope in implemented
         return TEST_eval_AST_node(node->right);
     }
     else
@@ -200,7 +200,7 @@ int main(int argc, char *argv[])
         input_file = get_file(argv[optind], "r");
     }
 
-    token_list_t *token_list = NULL;
+    token_list_node_t *token_list = NULL;
 
     { // Lexer
         token_list = lex_file(input_file);

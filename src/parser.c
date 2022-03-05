@@ -7,7 +7,7 @@
 #include "error_handling.h"
 #include "lexer.h"
 #include "parser.h"
-#include "string_t.h"
+#include "type/string_t.h"
 
 static AST_t AST = {NULL};
 
@@ -70,7 +70,7 @@ static int lower_priority(AST_node const *LHS, AST_node const *RHS)
  * @param type The type of node to create
  * @return The new AST node
  */
-static AST_node *get_AST_node(token_list_node *node, node_type_enum type)
+static AST_node *get_AST_node(token_list_node_t *node, node_type_enum type)
 {
     // Allocate our node and space for the string
     AST_node *return_node = malloc(sizeof(*return_node));
@@ -119,7 +119,7 @@ void put_AST()
     AST_node *temp_AST_node = AST.root;
     if (temp_AST_node != NULL)
     {
-        while (temp_AST_node->type != NodeRoot)
+        while (temp_AST_node->type == NodeParenthesis)
         {
             temp_AST_node = temp_AST_node->old_root;
         }
@@ -175,18 +175,18 @@ static void find_and_place_value(AST_node *current_AST_node)
  * @param token_list The list of token to use to build the AST
  * @return The root of the AST
  */
-AST_t *parse_lex(token_list_t *token_list)
+AST_t *parse_lex(token_list_node_t *token_list)
 {
     size_t parenthesis_depth = 0;
-    AST.root = get_AST_node(NULL, NodeRoot);
+    AST.root = get_AST_node(NULL, NodeScope);
 
     AST_node *current_AST_node = NULL;
     AST_node *temp_AST_node;
 
     // Place each token into an AST in order
-    token_list_node *elem, *temp;
-    elem = token_list->head;
-    for_each_token_node_from(elem, temp)
+    token_list_node_t *elem, *temp;
+    elem = token_list;
+    for_each_element_from(elem, temp, token_list_node_t, list)
     {
         switch (elem->token)
         {

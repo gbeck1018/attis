@@ -3,7 +3,7 @@
  */
 
 #include "error_handling.h"
-#include "string_t.h"
+#include "type/string_t.h"
 
 /**
  * @brief Allocate a string_t

@@ -1,8 +1,15 @@
 CXX		:= clang
-CXXFLAGS:= -Weverything -Wno-padded -Wno-unused-macros -Wno-switch-enum -Iinc/
-SOURCES	:= $(wildcard src/*.c)
-OBJECTS	:= $(patsubst src/%,obj/%,$(patsubst %.c,%.o,$(SOURCES)))
-DEPENDS	:= $(patsubst src/%,obj/%,$(patsubst %.c,%.d,$(SOURCES)))
+CXXFLAGS:= -Weverything \
+-Wno-padded -Wno-unused-macros -Wno-switch-enum -Wno-language-extension-token \
+-Wno-cast-align \
+-Iinc \
+
+SRCDIR := src/
+OBJDIR := obj/
+
+SOURCES := $(shell find $(SRCDIR) -type f -name '*.c')
+OBJECTS	:= $(patsubst $(SRCDIR)%,$(OBJDIR)%,$(patsubst %.c,%.o,$(SOURCES)))
+DEPENDS	:= $(patsubst $(SRCDIR)%,$(OBJDIR)%,$(patsubst %.c,%.d,$(SOURCES)))
 TARGET	:= attis
 
 .PHONY: all clean
@@ -10,12 +17,13 @@ TARGET	:= attis
 all: $(TARGET)
 
 clean:
-	$(RM) $(OBJECTS) $(DEPENDS) $(TARGET)
+	$(RM) -r $(OBJDIR) $(TARGET)
 
 $(TARGET): $(OBJECTS)
 	$(CXX) $^ -o $@ -lm
 
 -include $(DEPENDS)
 
-obj/%.o: src/%.c Makefile
+$(OBJDIR)%.o: $(SRCDIR)%.c Makefile
+	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
