@@ -126,7 +126,6 @@ static void put_AST_node_and_children(AST_node_t *current_AST_node)
     if (current_AST_node->type == NodeScope)
     {
         AST_node_t *temp = current_AST_node->list_head;
-        printf("%p\n", current_AST_node->right);
         AST_node_t *next;
         while (temp != NULL)
         {
@@ -186,7 +185,7 @@ void put_AST()
         {
             temp_AST_node = temp_AST_node->parent_scope;
         }
-        print_AST(temp_AST_node, 0);
+        // print_AST(temp_AST_node, 0);
         put_AST_node_and_children(temp_AST_node);
     }
     AST.root = NULL;

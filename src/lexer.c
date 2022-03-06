@@ -115,7 +115,7 @@ token_list_node_t *lex_file(FILE *input_file)
             ASSERT(!errno, "Error reading input file\n");
             break;
         }
-        printf("Lex %c\n", current_character);
+        // printf("Lex %c\n", current_character);
         if (isdigit(current_character))
         {
             // Check to see if we're appending characters or making a new token
