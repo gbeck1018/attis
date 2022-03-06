@@ -1,5 +1,5 @@
 CXX		:= clang
-CXXFLAGS:= -Weverything \
+CXXFLAGS:= -Weverything -g \
 -Wno-padded -Wno-unused-macros -Wno-switch-enum -Wno-language-extension-token \
 -Wno-cast-align \
 -Iinc \

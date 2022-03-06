@@ -11,6 +11,22 @@
 
 static AST_t AST = {NULL};
 
+static AST_node_t **get_next_search()
+{
+    if (AST.root != NULL)
+    {
+        if (AST.root->type == NodeParenthesis)
+        {
+            return &AST.root->right;
+        }
+        if (AST.root->type == NodeScope)
+        {
+            return &AST.root->right;
+        }
+    }
+    return &AST.root;
+}
+
 /**
  * @brief Return the relative priority of an operator
  * @param t The type to evaluate
@@ -47,8 +63,12 @@ static int get_operator_priority(node_type_enum t, string_t const *s)
             ASSERT(0, "Unknown operator priority\n");
             return -1;
         }
+    case NodeParenthesis:
+        return 9999;
+    case NodeLiteral:
+        return 9999;
     default:
-        ASSERT(0, "Unknown operator priority\n");
+        ASSERT(0, "Unknown operator priority %s\n", s->string);
         return -1;
     }
 }
@@ -58,7 +78,7 @@ static int get_operator_priority(node_type_enum t, string_t const *s)
  * @param LHS The node to check if it is lower priority
  * @param RHS The node to check against
  */
-static int lower_priority(AST_node const *LHS, AST_node const *RHS)
+static int lower_priority(AST_node_t const *LHS, AST_node_t const *RHS)
 {
     return get_operator_priority(LHS->type, &LHS->string)
            < get_operator_priority(RHS->type, &RHS->string);
@@ -70,10 +90,11 @@ static int lower_priority(AST_node const *LHS, AST_node const *RHS)
  * @param type The type of node to create
  * @return The new AST node
  */
-static AST_node *get_AST_node(token_list_node_t *node, node_type_enum type)
+static AST_node_t *get_AST_node(token_list_node_t *node, node_type_enum type,
+                                AST_node_t *current_scope)
 {
     // Allocate our node and space for the string
-    AST_node *return_node = malloc(sizeof(*return_node));
+    AST_node_t *return_node = calloc(1, sizeof(*return_node));
     ASSERT(return_node != NULL, "Failed to allocate token node\n");
 
     if (node != NULL)
@@ -82,12 +103,12 @@ static AST_node *get_AST_node(token_list_node_t *node, node_type_enum type)
     }
     else
     {
-        get_string(&return_node->string, NULL, 1);
+        get_string(&return_node->string, "NO_STRING", NO_EXTRA_SPACE);
+        // get_string(&return_node->string, NULL, 1);
     }
 
-    return_node->left = NULL;
-    return_node->right = NULL;
     return_node->type = type;
+    return_node->parent_scope = current_scope;
 
     return return_node;
 }
@@ -96,19 +117,61 @@ static AST_node *get_AST_node(token_list_node_t *node, node_type_enum type)
  * @brief Deallocate an AST node
  * @param current_AST_node The AST node to free, after freeing its children
  */
-static void put_AST_node_and_children(AST_node *current_AST_node)
+static void put_AST_node_and_children(AST_node_t *current_AST_node)
 {
     if (current_AST_node == NULL)
     {
         return;
     }
-    if (current_AST_node->type != NodeParenthesis)
+    if (current_AST_node->type == NodeScope)
     {
-        put_AST_node_and_children(current_AST_node->left);
+        AST_node_t *temp = current_AST_node->list_head;
+        printf("%p\n", current_AST_node->right);
+        AST_node_t *next;
+        while (temp != NULL)
+        {
+            next = temp->next;
+            put_AST_node_and_children(temp);
+            temp = next;
+        }
     }
+    put_AST_node_and_children(current_AST_node->left);
     put_AST_node_and_children(current_AST_node->right);
     put_string(&current_AST_node->string);
     free(current_AST_node);
+}
+
+static void print_AST(AST_node_t *root, int space)
+{
+    if (root == NULL)
+    {
+        return;
+    }
+
+    // Increase distance between levels
+    space += 2;
+
+    // Process right child first
+    print_AST(root->right, space);
+
+    // Print current node after space
+    // count
+    for (int i = 2; i < space; i++)
+        printf(" ");
+
+    if (root->type == NodeScope)
+    {
+        AST_node_t *temp = root->list_head;
+        while (temp != NULL)
+        {
+            print_AST(temp, space);
+            temp = temp->next;
+        }
+    }
+    printf("%s\n", root->string.string);
+
+    // Process left child
+    print_AST(root->left, space);
 }
 
 /**
@@ -116,58 +179,71 @@ static void put_AST_node_and_children(AST_node *current_AST_node)
  */
 void put_AST()
 {
-    AST_node *temp_AST_node = AST.root;
+    AST_node_t *temp_AST_node = AST.root;
     if (temp_AST_node != NULL)
     {
-        while (temp_AST_node->type == NodeParenthesis)
+        while (temp_AST_node->parent_scope != NULL)
         {
-            temp_AST_node = temp_AST_node->old_root;
+            temp_AST_node = temp_AST_node->parent_scope;
         }
+        print_AST(temp_AST_node, 0);
         put_AST_node_and_children(temp_AST_node);
     }
     AST.root = NULL;
 }
 
-static void find_and_place_operator(AST_node *current_AST_node)
+static void find_and_place_operator(AST_node_t *current_AST_node)
 {
-    AST_node *temp_AST_node, *prev_AST_node;
-    // Search for the appropriate place for this operation by proirity
-    temp_AST_node = AST.root->right;
-    prev_AST_node = AST.root;
-    while (temp_AST_node
-           && (temp_AST_node->type == NodeBinaryOperator
-               || temp_AST_node->type == NodeUnaryOperator)
-           && lower_priority(temp_AST_node, current_AST_node))
+    AST_node_t **current_root = get_next_search();
+    if (*current_root == NULL)
     {
-        // This node is of a lower priority, iterate to the right
-        prev_AST_node = temp_AST_node;
-        temp_AST_node = temp_AST_node->right;
+        current_AST_node->parent_node = AST.root;
+        *current_root = current_AST_node;
+        AST.root = current_AST_node;
     }
-
-    // We've found the location to put our new node. Rotate the lower
-    // priority node to the left.
-    current_AST_node->left = temp_AST_node;
-    prev_AST_node->right = current_AST_node;
+    else
+    {
+        AST_node_t *old_root = *current_root;
+        AST_node_t *prev_root = old_root->parent_node;
+        while (old_root
+               && (old_root->type == NodeBinaryOperator
+                   || old_root->type == NodeUnaryOperator)
+               && lower_priority(old_root, current_AST_node))
+        {
+            prev_root = old_root;
+            old_root = old_root->right;
+        }
+        current_AST_node->parent_node = prev_root;
+        if (old_root == *current_root)
+        {
+            AST.root = current_AST_node;
+        }
+        prev_root->right = current_AST_node;
+        current_AST_node->left = old_root;
+    }
 }
 
-static void find_and_place_value(AST_node *current_AST_node)
+static void find_and_place_value(AST_node_t *current_AST_node)
 {
-    AST_node *temp_AST_node;
-
-    // If this is the first token, it is an L value
-    if (AST.root->right == NULL)
+    AST_node_t **current_root = get_next_search();
+    if (*current_root == NULL)
     {
-        AST.root->right = current_AST_node;
-        return;
+        current_AST_node->parent_node = AST.root;
+        *current_root = current_AST_node;
+        AST.root = current_AST_node;
     }
-    // Else, this can be placed in the first open R value location
-    temp_AST_node = AST.root->right;
-    while (temp_AST_node != NULL && temp_AST_node->right != NULL
-           && temp_AST_node->type == NodeBinaryOperator)
+    else
     {
-        temp_AST_node = temp_AST_node->right;
+        AST_node_t *current_node = *get_next_search();
+        while (current_node->right
+               && (current_node->right->type == NodeUnaryOperator
+                   || current_node->right->type == NodeBinaryOperator))
+        {
+            current_node = current_node->right;
+        }
+        current_AST_node->parent_node = current_node;
+        current_node->right = current_AST_node;
     }
-    temp_AST_node->right = current_AST_node;
 }
 
 /**
@@ -177,53 +253,72 @@ static void find_and_place_value(AST_node *current_AST_node)
  */
 AST_t *parse_lex(token_list_node_t *token_list)
 {
-    size_t parenthesis_depth = 0;
-    AST.root = get_AST_node(NULL, NodeScope);
+    AST.root = get_AST_node(NULL, NodeScope, NULL);
+    AST_node_t *current_AST_node = AST.root;
+    AST_node_t *current_scope = AST.root;
 
-    AST_node *current_AST_node = NULL;
-    AST_node *temp_AST_node;
+    AST_node_t *temp_AST_node;
+
+    int parenthesis_depth = 0;
 
     // Place each token into an AST in order
     token_list_node_t *elem, *temp;
     elem = token_list;
     for_each_element_from(elem, temp, token_list_node_t, list)
     {
+        // printf("Parse %s\n", elem->string.string);
         switch (elem->token)
         {
         case TokenUnaryOperator:
-            current_AST_node = get_AST_node(elem, NodeUnaryOperator);
+            current_AST_node
+                = get_AST_node(elem, NodeUnaryOperator, current_scope);
             find_and_place_operator(current_AST_node);
             break;
         case TokenBinaryOperator:
-            ASSERT(AST.root->right != NULL,
-                   "Can't begin and AST with a binary operator\n");
-            current_AST_node = get_AST_node(elem, NodeBinaryOperator);
+            current_AST_node
+                = get_AST_node(elem, NodeBinaryOperator, current_scope);
             find_and_place_operator(current_AST_node);
             break;
         case TokenOpenParenthesis:
             parenthesis_depth += 1;
-            current_AST_node = get_AST_node(elem, NodeParenthesis);
-            // Save the old root, as we will temporarily update it
+            current_AST_node
+                = get_AST_node(elem, NodeParenthesis, current_scope);
             current_AST_node->old_root = AST.root;
             find_and_place_value(current_AST_node);
-            // Root moves (recoverably) to the new parenthesis context
             AST.root = current_AST_node;
             break;
         case TokenCloseParenthesis:
             parenthesis_depth -= 1;
-            ASSERT(AST.root->right != NULL, "Invalid close parenthesis\n");
-            ASSERT(parenthesis_depth != (size_t)-1,
-                   "Unbalanced parenthesis\n");
-            ASSERT(current_AST_node, "Improper parenthesis expression\n");
-            ASSERT(current_AST_node->type == NodeLiteral,
-                   "Improper parenthesis expression\n");
-            temp_AST_node = AST.root->old_root;
-            AST.root->old_root = NULL;
-            AST.root = temp_AST_node;
+            ASSERT(parenthesis_depth >= 0, "Unbalanced parenthesis\n");
+            temp_AST_node = AST.root;
+            if (AST.root->type == NodeParenthesis)
+            {
+                AST.root = temp_AST_node->old_root;
+                temp_AST_node->old_root = NULL;
+            }
+            else
+            {
+                AST.root = temp_AST_node->parent_node->old_root;
+                temp_AST_node->parent_node->old_root = NULL;
+            }
             break;
         case TokenLiteral:
-            current_AST_node = get_AST_node(elem, NodeLiteral);
+            current_AST_node = get_AST_node(elem, NodeLiteral, current_scope);
             find_and_place_value(current_AST_node);
+            break;
+        case TokenSemicolon:
+            ASSERT(parenthesis_depth == 0, "Unbalanced parenthesis\n");
+            if (current_scope->list_head == NULL)
+            {
+                current_scope->list_head = *get_next_search();
+            }
+            else
+            {
+                current_scope->list_tail->next = *get_next_search();
+            }
+            current_scope->list_tail = *get_next_search();
+            *get_next_search() = current_scope;
+            current_scope->right = NULL;
             break;
         default:
             printf("TODO handle other tokens in parse_lex\n");
@@ -231,6 +326,5 @@ AST_t *parse_lex(token_list_node_t *token_list)
         }
     }
     ASSERT(parenthesis_depth == 0, "Unbalanced parenthesis\n");
-
     return &AST;
 }

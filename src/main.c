@@ -56,7 +56,7 @@ noreturn static void usage(char const *program_name)
 #include <features.h>
 #include <math.h>
 
-static double TEST_eval_AST_node(AST_node *node)
+static double TEST_eval_AST_node(AST_node_t *node)
 {
     long ret;
     double temp;
@@ -118,7 +118,13 @@ static double TEST_eval_AST_node(AST_node *node)
     }
     else if (node->type == NodeScope)
     { // TODO this will behave differently once scope in implemented
-        return TEST_eval_AST_node(node->right);
+        AST_node_t *temp_node = node->list_head;
+        do
+        {
+            temp = TEST_eval_AST_node(temp_node);
+            temp_node = temp_node->next;
+        } while (temp_node != NULL);
+        return temp;
     }
     else
     {

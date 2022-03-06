@@ -115,13 +115,16 @@ token_list_node_t *lex_file(FILE *input_file)
             ASSERT(!errno, "Error reading input file\n");
             break;
         }
-
+        printf("Lex %c\n", current_character);
         if (isdigit(current_character))
         {
             // Check to see if we're appending characters or making a new token
             if (token_list.tail == NULL
                 || token_node(token_list.tail)->token != TokenLiteral)
             {
+                ASSERT(token_node(token_list.tail)->token
+                           != TokenCloseParenthesis,
+                       "No operator before number\n");
                 add_new_token_node(NULL, 3, TokenLiteral);
             }
             add_character(&token_node(token_list.tail)->string,
@@ -148,9 +151,12 @@ token_list_node_t *lex_file(FILE *input_file)
                 || token_node(token_list.tail)->token == TokenOpenParenthesis
                 || token_node(token_list.tail)->token == TokenSemicolon)
             {
-                ASSERT(token_node(token_list.tail)->token
-                           != TokenUnaryOperator,
-                       "Bad unary operator\n");
+                if (token_list.tail)
+                {
+                    ASSERT(token_node(token_list.tail)->token
+                               != TokenUnaryOperator,
+                           "Bad unary operator\n");
+                }
                 add_new_token_node(NULL, 2, TokenUnaryOperator);
                 add_character(&token_node(token_list.tail)->string,
                               (char)current_character);

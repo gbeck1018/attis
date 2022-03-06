@@ -12,29 +12,33 @@ typedef enum
     NodeUnknown
 } node_type_enum;
 
-typedef struct AST_node
+typedef struct AST_node_t
 {
-    struct AST_node *left;
-    struct AST_node *right;
+    struct AST_node_t *left;
+    struct AST_node_t *right;
+    struct AST_node_t *next;
+    struct AST_node_t *parent_node;
+    struct AST_node_t *parent_scope;
     node_type_enum type;
+    string_t string;
     union // This contains extra information that might be relevant to some
           // nodes depending on the node type
     {
         struct // NodeParenthesis
         {
-            struct AST_node *old_root; // Old root of parenthesis
+            struct AST_node_t *old_root; // Old root of parenthesis
         };
         struct // NodeScope
         {
-            list_t scope_list; // List of nodes contained in a scope
+            struct AST_node_t *list_head;
+            struct AST_node_t *list_tail;
         };
     };
-    string_t string;
-} AST_node;
+} AST_node_t;
 
 typedef struct AST_t
 {
-    AST_node *root;
+    AST_node_t *root;
 } AST_t;
 
 AST_t *parse_lex(token_list_node_t *token_list);

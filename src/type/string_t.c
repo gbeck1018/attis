@@ -26,7 +26,7 @@ void get_string(string_t *input_struct, char const *input_string,
     size_t input_length = strlen(input_string);
     if (reserve_space == NO_EXTRA_SPACE)
     {
-        reserve_space = input_length;
+        reserve_space = input_length + 1;
     }
     ASSERT(input_length <= reserve_space,
            "Invalid reserve space given to allocate string: %lu > %lu\n",
@@ -80,7 +80,7 @@ void get_string_clone(string_t *input_struct, string_t const *copy_struct)
 void add_character(string_t *string_struct, char character)
 {
     // If we need more room for the new character, realloc
-    if (string_struct->string_length == string_struct->reserve_space)
+    if (string_struct->string_length <= string_struct->reserve_space - 1)
     {
         string_struct->string
             = realloc(string_struct->string, string_struct->reserve_space * 2);
