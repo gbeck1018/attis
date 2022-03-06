@@ -21,6 +21,9 @@ typedef struct AST_node_t
     struct AST_node_t *parent_scope;
     node_type_enum type;
     string_t string;
+    string_t filename;
+    int column_number;
+    int line_number;
     union // This contains extra information that might be relevant to some
           // nodes depending on the node type
     {

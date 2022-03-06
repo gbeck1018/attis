@@ -1,3 +1,4 @@
 attis
 *.d
 *.o
+vgcore.*

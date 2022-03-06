@@ -25,6 +25,9 @@ typedef struct token_list_node_t
     list_entry_t list;
     token_type_enum token;
     string_t string;
+    string_t filename;
+    int column_number;
+    int line_number;
 } token_list_node_t;
 
 #define token_node(ptr) container_of(ptr, token_list_node_t, list)

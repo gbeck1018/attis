@@ -63,10 +63,6 @@ static int get_operator_priority(node_type_enum t, string_t const *s)
             ASSERT(0, "Unknown operator priority\n");
             return -1;
         }
-    case NodeParenthesis:
-        return 9999;
-    case NodeLiteral:
-        return 9999;
     default:
         ASSERT(0, "Unknown operator priority %s\n", s->string);
         return -1;
@@ -100,11 +96,14 @@ static AST_node_t *get_AST_node(token_list_node_t *node, node_type_enum type,
     if (node != NULL)
     {
         get_string_clone(&return_node->string, &node->string);
+        return_node->line_number = node->line_number;
+        return_node->column_number = node->column_number;
     }
     else
     {
-        get_string(&return_node->string, "NO_STRING", NO_EXTRA_SPACE);
-        // get_string(&return_node->string, NULL, 1);
+        get_string(&return_node->string, "__GLOBAL_SCOPE__", NO_EXTRA_SPACE);
+        return_node->line_number = -1;
+        return_node->column_number = -1;
     }
 
     return_node->type = type;
@@ -233,15 +232,15 @@ static void find_and_place_value(AST_node_t *current_AST_node)
     }
     else
     {
-        AST_node_t *current_node = *get_next_search();
-        while (current_node->right
-               && (current_node->right->type == NodeUnaryOperator
-                   || current_node->right->type == NodeBinaryOperator))
+        AST_node_t *temp_node = *current_root;
+        while (temp_node->right
+               && (temp_node->right->type == NodeUnaryOperator
+                   || temp_node->right->type == NodeBinaryOperator))
         {
-            current_node = current_node->right;
+            temp_node = temp_node->right;
         }
-        current_AST_node->parent_node = current_node;
-        current_node->right = current_AST_node;
+        current_AST_node->parent_node = temp_node;
+        temp_node->right = current_AST_node;
     }
 }
 
@@ -323,6 +322,8 @@ AST_t *parse_lex(token_list_node_t *token_list)
             printf("TODO handle other tokens in parse_lex\n");
             exit(EXIT_FAILURE);
         }
+        // printf("Parse %s\n", elem->string.string);
+        // print_AST(AST.root, 0);
     }
     ASSERT(parenthesis_depth == 0, "Unbalanced parenthesis\n");
     return &AST;

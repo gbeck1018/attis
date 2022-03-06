@@ -30,17 +30,19 @@ static list_t token_list = {NULL, NULL};
  */
 static token_list_node_t *get_token_node(char const *input_string,
                                          size_t reserve_space,
-                                         token_type_enum type)
+                                         token_type_enum type,
+                                         int column_number, int line_number)
 {
     // Allocate our node and space for the string
     token_list_node_t *return_node = malloc(sizeof(*return_node));
     ASSERT(return_node != NULL, "Failed to allocate token node\n");
 
-    get_string(&return_node->string, input_string, reserve_space);
-
     return_node->list.next = NULL;
     return_node->list.prev = NULL;
     return_node->token = type;
+    get_string(&return_node->string, input_string, reserve_space);
+    return_node->column_number = column_number;
+    return_node->line_number = line_number;
 
     return return_node;
 }
@@ -52,10 +54,13 @@ static token_list_node_t *get_token_node(char const *input_string,
  * @param[in] type The type of token to add
  */
 static void add_new_token_node(char const *input_string, size_t reserve_space,
-                               token_type_enum type)
+                               token_type_enum type, int column_number,
+                               int line_number)
 {
-    add_element_to_end(
-        &get_token_node(input_string, reserve_space, type)->list, &token_list);
+    add_element_to_end(&get_token_node(input_string, reserve_space, type,
+                                       column_number, line_number)
+                            ->list,
+                       &token_list);
 }
 
 /**
@@ -101,13 +106,15 @@ void put_token_node_list()
 token_list_node_t *lex_file(FILE *input_file)
 {
     int current_character = EOF;
+    int column_number = 0;
+    int line_number = 1;
 
     ASSERT(input_file != NULL, "Lexer given invalid file input\n");
 
     for (;;)
     {
         current_character = getc(input_file);
-
+        column_number += 1;
         // Return is EOF either if the end of the file was reached or there was
         // an error
         if (current_character == EOF)
@@ -125,23 +132,22 @@ token_list_node_t *lex_file(FILE *input_file)
                 ASSERT(token_node(token_list.tail)->token
                            != TokenCloseParenthesis,
                        "No operator before number\n");
-                add_new_token_node(NULL, 3, TokenLiteral);
+                add_new_token_node(NULL, 3, TokenLiteral, column_number,
+                                   line_number);
             }
             add_character(&token_node(token_list.tail)->string,
                           (char)current_character);
             continue;
         }
-
         // Parse the token associated with the current character
         switch (current_character)
         {
         case '\r':
-            /*current_token = TokenCR;
-            printf("Token: TokenCR\n");*/
-            break;
+            printf("CR not supported\n");
+            exit(EXIT_FAILURE);
         case '\n':
-            /*current_token = TokenLF;
-            printf("Token: TokenLF\n");*/
+            line_number += 1;
+            column_number = 0;
             break;
         case '-':
         case '+':
@@ -157,7 +163,8 @@ token_list_node_t *lex_file(FILE *input_file)
                                != TokenUnaryOperator,
                            "Bad unary operator\n");
                 }
-                add_new_token_node(NULL, 2, TokenUnaryOperator);
+                add_new_token_node(NULL, 2, TokenUnaryOperator, column_number,
+                                   line_number);
                 add_character(&token_node(token_list.tail)->string,
                               (char)current_character);
                 break;
@@ -174,7 +181,8 @@ token_list_node_t *lex_file(FILE *input_file)
                             == TokenCloseParenthesis
                         || token_node(token_list.tail)->token == TokenLiteral),
                 "Bad binary operator\n");
-            add_new_token_node(NULL, 2, TokenBinaryOperator);
+            add_new_token_node(NULL, 2, TokenBinaryOperator, column_number,
+                               line_number);
             add_character(&token_node(token_list.tail)->string,
                           (char)current_character);
             break;
@@ -186,7 +194,8 @@ token_list_node_t *lex_file(FILE *input_file)
                         && token_node(token_list.tail)->token != TokenLiteral,
                     "Bad open parenthesis\n");
             }
-            add_new_token_node(NULL, 2, TokenOpenParenthesis);
+            add_new_token_node(NULL, 2, TokenOpenParenthesis, column_number,
+                               line_number);
             add_character(&token_node(token_list.tail)->string,
                           (char)current_character);
             break;
@@ -197,7 +206,8 @@ token_list_node_t *lex_file(FILE *input_file)
                             == TokenCloseParenthesis
                         || token_node(token_list.tail)->token == TokenLiteral),
                 "Bad closed parenthesis\n");
-            add_new_token_node(NULL, 2, TokenCloseParenthesis);
+            add_new_token_node(NULL, 2, TokenCloseParenthesis, column_number,
+                               line_number);
             add_character(&token_node(token_list.tail)->string,
                           (char)current_character);
             break;
@@ -208,7 +218,8 @@ token_list_node_t *lex_file(FILE *input_file)
                        || token_node(token_list.tail)->token == TokenLiteral
                        || token_node(token_list.tail)->token == TokenSemicolon,
                    "Bad semicolon\n");
-            add_new_token_node(NULL, 2, TokenSemicolon);
+            add_new_token_node(NULL, 2, TokenSemicolon, column_number,
+                               line_number);
             add_character(&token_node(token_list.tail)->string,
                           (char)current_character);
             break;
