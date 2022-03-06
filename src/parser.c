@@ -9,8 +9,20 @@
 #include "parser.h"
 #include "type/string_t.h"
 
+//////////////////////////////////////////////////////////////////////////
+// AST Structures Definition
+//////////////////////////////////////////////////////////////////////////
+
+/**
+ * STATE: This holds the AST for parsing
+ */
 static AST_t AST = {NULL};
 
+/**
+ * @brief Parenthesis and Scope nodes section the root off to the right
+ * temporarily to ensure thir children stay in a local scope.
+ * @return The effective root node pointer pointer, might be NULL
+ */
 static AST_node_t **get_next_search()
 {
     if (AST.root != NULL)
@@ -26,6 +38,10 @@ static AST_node_t **get_next_search()
     }
     return &AST.root;
 }
+
+//////////////////////////////////////////////////////////////////////////
+// Node placement
+//////////////////////////////////////////////////////////////////////////
 
 /**
  * @brief Return the relative priority of an operator
@@ -81,13 +97,80 @@ static int lower_priority(AST_node_t const *LHS, AST_node_t const *RHS)
 }
 
 /**
+ * @brief Place a new operator in the AST
+ * @param current_AST_node The node to place
+ */
+static void find_and_place_operator(AST_node_t *current_AST_node)
+{
+    AST_node_t **current_root = get_next_search();
+    if (*current_root == NULL)
+    {
+        current_AST_node->parent_node = AST.root;
+        *current_root = current_AST_node;
+        AST.root = current_AST_node;
+    }
+    else
+    {
+        AST_node_t *old_root = *current_root;
+        AST_node_t *prev_root = old_root->parent_node;
+        while (old_root
+               && (old_root->type == NodeBinaryOperator
+                   || old_root->type == NodeUnaryOperator)
+               && lower_priority(old_root, current_AST_node))
+        {
+            prev_root = old_root;
+            old_root = old_root->right;
+        }
+        current_AST_node->parent_node = prev_root;
+        if (old_root == *current_root)
+        {
+            AST.root = current_AST_node;
+        }
+        prev_root->right = current_AST_node;
+        current_AST_node->left = old_root;
+    }
+}
+
+/**
+ * @brief Place a new value in the AST
+ * @param current_AST_node The node to place
+ */
+static void find_and_place_value(AST_node_t *current_AST_node)
+{
+    AST_node_t **current_root = get_next_search();
+    if (*current_root == NULL)
+    {
+        current_AST_node->parent_node = AST.root;
+        *current_root = current_AST_node;
+        AST.root = current_AST_node;
+    }
+    else
+    {
+        AST_node_t *temp_node = *current_root;
+        while (temp_node->right
+               && (temp_node->right->type == NodeUnaryOperator
+                   || temp_node->right->type == NodeBinaryOperator))
+        {
+            temp_node = temp_node->right;
+        }
+        current_AST_node->parent_node = temp_node;
+        temp_node->right = current_AST_node;
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////
+// AST Operations
+//////////////////////////////////////////////////////////////////////////
+
+/**
  * @brief Allocate an AST node
  * @param node The node to copy from
  * @param type The type of node to create
+ * @param parent_scope The parent scope of this node
  * @return The new AST node
  */
 static AST_node_t *get_AST_node(token_list_node_t *node, node_type_enum type,
-                                AST_node_t *current_scope)
+                                AST_node_t *parent_scope)
 {
     // Allocate our node and space for the string
     AST_node_t *return_node = calloc(1, sizeof(*return_node));
@@ -107,7 +190,7 @@ static AST_node_t *get_AST_node(token_list_node_t *node, node_type_enum type,
     }
 
     return_node->type = type;
-    return_node->parent_scope = current_scope;
+    return_node->parent_scope = parent_scope;
 
     return return_node;
 }
@@ -190,59 +273,9 @@ void put_AST()
     AST.root = NULL;
 }
 
-static void find_and_place_operator(AST_node_t *current_AST_node)
-{
-    AST_node_t **current_root = get_next_search();
-    if (*current_root == NULL)
-    {
-        current_AST_node->parent_node = AST.root;
-        *current_root = current_AST_node;
-        AST.root = current_AST_node;
-    }
-    else
-    {
-        AST_node_t *old_root = *current_root;
-        AST_node_t *prev_root = old_root->parent_node;
-        while (old_root
-               && (old_root->type == NodeBinaryOperator
-                   || old_root->type == NodeUnaryOperator)
-               && lower_priority(old_root, current_AST_node))
-        {
-            prev_root = old_root;
-            old_root = old_root->right;
-        }
-        current_AST_node->parent_node = prev_root;
-        if (old_root == *current_root)
-        {
-            AST.root = current_AST_node;
-        }
-        prev_root->right = current_AST_node;
-        current_AST_node->left = old_root;
-    }
-}
-
-static void find_and_place_value(AST_node_t *current_AST_node)
-{
-    AST_node_t **current_root = get_next_search();
-    if (*current_root == NULL)
-    {
-        current_AST_node->parent_node = AST.root;
-        *current_root = current_AST_node;
-        AST.root = current_AST_node;
-    }
-    else
-    {
-        AST_node_t *temp_node = *current_root;
-        while (temp_node->right
-               && (temp_node->right->type == NodeUnaryOperator
-                   || temp_node->right->type == NodeBinaryOperator))
-        {
-            temp_node = temp_node->right;
-        }
-        current_AST_node->parent_node = temp_node;
-        temp_node->right = current_AST_node;
-    }
-}
+//////////////////////////////////////////////////////////////////////////////
+// Parsing
+//////////////////////////////////////////////////////////////////////////////
 
 /**
  * @brief Build an AST from a list of tokens
